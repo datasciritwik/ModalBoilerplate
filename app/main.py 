@@ -1,0 +1,25 @@
+# app/main.py
+from fastapi import FastAPI
+from .api.routes import router as api_router
+from .services.model_service import ModelService
+from .utils.logging import configure_logging
+
+def create_app():
+    configure_logging()
+    app = FastAPI(title="Sports Analytics API")
+
+    # inject single model service instance into app.state so it persists in container
+    model_service = ModelService()
+    app.state.model_service = model_service
+
+    # Startup/shutdown hooks: load model once per container
+    @app.on_event("startup")
+    async def startup():
+        await model_service.load_model()
+
+    @app.on_event("shutdown")
+    async def shutdown():
+        await model_service.cleanup()
+
+    app.include_router(api_router, prefix="/api")
+    return app
